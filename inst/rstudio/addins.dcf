@@ -1,4 +1,4 @@
 Name: Run pivotR
 Description: Interactive data visualisation
-Binding: pivotR
+Binding: runAddin
 Interactive: true

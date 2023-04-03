@@ -1,3 +1,27 @@
+#' Call the pivotR app as an RStudio addin
+#'
+#' @return
+#' @export
+#'
+#' @examples
+runAddin <- function(){
+  selection <- rstudioapi::getActiveDocumentContext()[["selection"]][[1]][["text"]]
+  
+  # Check selection is a loaded data frame
+  objs <- eapply(.GlobalEnv, is.data.frame) |> 
+    tibble::as_tibble()
+  
+  if(!selection %in% names(objs)){
+    stop('Selection is not loaded in the environment')
+  }
+  
+  if(objs[selection]==FALSE){
+    stop('Selection is not a data frame')
+  }
+  
+  pivotR(get(selection))
+}
+
 #' Run the pivotR app
 #'
 #' @param input_raw A data frame
