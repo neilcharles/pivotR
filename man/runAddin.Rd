@@ -6,6 +6,12 @@
 \usage{
 runAddin()
 }
+\value{
+A shiny gadget
+}
 \description{
 Call the pivotR app as an RStudio addin
+}
+\examples{
+# test
 }

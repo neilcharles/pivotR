@@ -1,9 +1,10 @@
 #' Call the pivotR app as an RStudio addin
 #'
-#' @return
+#' @return A shiny gadget
 #' @export
 #'
 #' @examples
+#' # test
 runAddin <- function(){
   selection <- rstudioapi::getActiveDocumentContext()[["selection"]][[1]][["text"]]
   
