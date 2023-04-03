@@ -1,9 +1,15 @@
-library(shiny)
-library(magrittr)
-
-options("spinner.color" = "#FA9B1E")
-
+#' Run the pivotR app
+#'
+#' @param input_raw A data frame
+#' @param ... Further arguments passed to pivotR
+#'
+#' @return A Shiny gadget
+#' @export
+#'
+#' @examples
+#' #pivotR(mtcars)
 pivotR <- function(input_raw, ...) {
+  
   ui <- bs4Dash::dashboardPage(
     header = bs4Dash::dashboardHeader(title = bs4Dash::dashboardBrand(
       title = "pivotR",
@@ -11,19 +17,19 @@ pivotR <- function(input_raw, ...) {
     )),
     sidebar = bs4Dash::dashboardSidebar(disable = TRUE),
     controlbar = bs4Dash::dashboardControlbar(collapsed = FALSE,
-                                              column(
+                                              shiny::column(
                                                 width = 8,
                                                 shiny::uiOutput("metrics_select"),
-                                                hr(),
-                                                p("Geo"),
+                                                shiny::hr(),
+                                                shiny::p("Geo"),
                                                 shiny::uiOutput("latitude_select"),
                                                 shiny::uiOutput("longitude_select")
                                               )),
     dark = NULL,
     body = bs4Dash::dashboardBody(# fresh::use_theme(fresh::create_theme('#000000')),
       # CSS
-      tags$head(tags$style(
-        HTML(
+      shiny::tags$head(shiny::tags$style(
+        shiny::HTML(
           "
       .img-circle {
         border-radius: 0 !important;
@@ -36,17 +42,17 @@ pivotR <- function(input_raw, ...) {
       }"
         )
       )),
-      fluidRow(
-        column(10,
-               bs4Dash::tabsetPanel(tabPanel(
+      shiny::fluidRow(
+        shiny::column(10,
+               bs4Dash::tabsetPanel(shiny::tabPanel(
                  title = "Plot",
                  plotly::plotlyOutput("plot", height = 800)
                ),
-               tabPanel(
+               shiny::tabPanel(
                  title = "Map",
                  leaflet::leafletOutput("map", height = 800)
                ))),
-        column(
+        shiny::column(
           2,
           bs4Dash::box(
             width = 12,
@@ -65,7 +71,7 @@ pivotR <- function(input_raw, ...) {
             width = 12,
             title = "Chart",
             shiny::uiOutput("chart_types"),
-            hr(),
+            shiny::hr(),
             shiny::sliderInput(
               "uiSize",
               "Size",
@@ -94,7 +100,7 @@ pivotR <- function(input_raw, ...) {
     })
     
     input_rollup <- reactive({
-      req(input$uiRowsSelect, input$uiColsSelect)
+      shiny::req(input$uiRowsSelect, input$uiColsSelect)
       
       # Build a vector of all dimension vars in use in the viz
       grouping_vars <- c(input$uiRowsSelect,
@@ -287,5 +293,5 @@ pivotR <- function(input_raw, ...) {
   }
   
   # shinyApp(ui, server)
-  shiny::runGadget(ui, server, viewer = browserViewer())
+  shiny::runGadget(ui, server, viewer = shiny::browserViewer())
 }

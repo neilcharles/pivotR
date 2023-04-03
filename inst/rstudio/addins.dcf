@@ -1,0 +1,5 @@
+Name: pivotR
+Description: Interactive data visualisation
+Binding: new_addin
+Interactive: true
+

@@ -1,0 +1,33 @@
+---
+title: "Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(pivotR)
+# library(googleAnalyticsR)
+# 
+# ga_auth()
+# 
+# test <- google_analytics(97072265,
+#                          date_range = c('2022-01-01', '2022-12-31'),
+#                          metrics = c('sessions', 'users'),
+#                          dimensions = c('date', 'medium', 'latitude', 'longitude'),
+#                          max = -1)
+# 
+# pivotR(test)
+
+# pivotR(mtcars)
+
+```
