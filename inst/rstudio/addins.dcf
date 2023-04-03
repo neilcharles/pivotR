@@ -1,5 +1,5 @@
-Name: pivotR
+Name: Run pivotR
 Description: Interactive data visualisation
-Binding: new_addin
+Binding: pivotR
 Interactive: true
 

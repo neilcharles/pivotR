@@ -16,6 +16,8 @@ Suggests:
 VignetteBuilder: knitr
 imports:
   shiny,
+  miniUI,
+  rstudioapi,
   bs4Dash,
   plotly,
   dplyr,
