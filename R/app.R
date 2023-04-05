@@ -88,26 +88,33 @@ pivotR <- function(input_raw, ...) {
         shiny::column(
           2,
           bs4Dash::box(
-            id = "box_filter",
+            id = "box_pre",
             width = 12,
-            title = "Filter",
-            shiny::uiOutput("filter_fields_select"),
-            shiny::uiOutput("filter_values_select")
-          ),
-          bs4Dash::box(
-            id = "box_rollup",
-            width = 12,
-            title = "Rollup",
-            shiny::uiOutput("grouping_fields_select"),
-            shiny::uiOutput("grouping_calc_select")
-          ),
+            title = "Pre-Chart",
+            bs4Dash::box(
+              id = "box_filter",
+              width = 12,
+              title = "Filter",
+              shiny::uiOutput("filter_fields_select"),
+              shiny::uiOutput("filter_values_select")
+            ),
+            bs4Dash::box(
+              id = "box_rollup",
+              width = 12,
+              title = "Rollup",
+              shiny::uiOutput("grouping_fields_select"),
+              shiny::uiOutput("grouping_calc_select_pre")
+            )),
           bs4Dash::box(
             id = "box_layout",
             width = 12,
             title = "Layout",
             shiny::uiOutput("cols_select"),
             shiny::uiOutput("rows_select"),
+            hr(),
+            shiny::uiOutput("grouping_calc_select_chart"),
             shiny::hr(),
+            shiny::uiOutput("detail_select"),
             shiny::uiOutput("size_select"),
             shiny::uiOutput("colour_select"),
             shiny::uiOutput("text_select")
@@ -164,8 +171,12 @@ pivotR <- function(input_raw, ...) {
       names(input_pre_processed())
     })
     
-    summary_function <- reactive({
-      match.fun(input$uiGroupingCalcSelect)
+    summary_function_pre <- reactive({
+      match.fun(input$uiGroupingCalcSelectPre)
+    })
+
+    summary_function_chart <- reactive({
+      match.fun(input$uiGroupingCalcSelectChart)
     })
     
     input_rollup <- reactive({
@@ -174,26 +185,29 @@ pivotR <- function(input_raw, ...) {
       # Build a vector of all dimension vars in use in the viz
       grouping_vars_all <- c(input$uiRowsSelect, input$uiColsSelect)
       
-      grouping_vars_no_metrics <- grouping_vars_all[!grouping_vars_all %in% input$uiMetricsSelect]
+      if(input$uiDetailSelect!="[NONE]") grouping_vars_all <- c(grouping_vars_all, input$uiDetailSelect)
+      if(input$uiColourSelect!="[NONE]") grouping_vars_all <- c(grouping_vars_all, input$uiColourSelect)
+      if(input$uiTextSelect!="[NONE]") grouping_vars_all <- c(grouping_vars_all, input$uiTextSelect)
       
+      # Remove any metrics that have been classed as grouping vars
+        grouping_vars_no_metrics <- grouping_vars_all[!grouping_vars_all %in% input$uiMetricsSelect]
+
       # Pre visualisation rollup
       if (!is.null(input$uiGroupingFieldsSelect)) {
         rolled_up_input <- input_pre_processed() |>
           dplyr::group_by(dplyr::across(dplyr::all_of(c(input$uiGroupingFieldsSelect, grouping_vars_no_metrics)))) |> # Rollup grouping
-          dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function())) |> 
+          dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function_pre())) |> 
           dplyr::ungroup()
       } else {
         rolled_up_input <- input_pre_processed()
       }
       
-      # Group by grouping vars for rows and cols (if there are any)
-      if (length(grouping_vars_no_metrics) > 0) {
-        rolled_up_input <- rolled_up_input |>
-          dplyr::group_by(dplyr::across(dplyr::all_of(grouping_vars_no_metrics))) |> # Rows and cols grouping
-          dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function())) |> 
-          dplyr::ungroup()
-      }
-      
+      # Group by grouping vars for rows and cols
+      rolled_up_input <- rolled_up_input |>
+        dplyr::group_by(dplyr::across(dplyr::all_of(grouping_vars_no_metrics))) |> # Rows and cols grouping
+        dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function_chart())) |> 
+        dplyr::ungroup()
+
       rolled_up_input
     })
     
@@ -210,9 +224,14 @@ pivotR <- function(input_raw, ...) {
       shiny::selectInput("uiGroupingFieldsSelect", "Fields", input_names()[!input_names() %in% input$uiMetricsSelect], multiple = TRUE)
     })
     
-    output$grouping_calc_select <- shiny::renderUI({
-      shiny::selectInput("uiGroupingCalcSelect", "Calculation", c("sum", "mean", "min", "max"), multiple = FALSE)
+    output$grouping_calc_select_pre <- shiny::renderUI({
+      shiny::selectInput("uiGroupingCalcSelectPre", "Calculation", c("sum", "mean", "min", "max"), multiple = FALSE)
     })
+    
+    output$grouping_calc_select_chart <- shiny::renderUI({
+      shiny::selectInput("uiGroupingCalcSelectChart", "Calculation", c("sum", "mean", "min", "max"), multiple = FALSE)
+    })
+    
     
     output$rows_select <- shiny::renderUI({
       shiny::selectInput("uiRowsSelect", "Rows", input_names(), input$uiMetricsSelect[1], multiple = FALSE)
@@ -225,7 +244,14 @@ pivotR <- function(input_raw, ...) {
                          input_names()[1],
                          multiple = FALSE)
     })
-    
+
+    output$detail_select <- shiny::renderUI({
+      shiny::selectInput("uiDetailSelect",
+                         "Detail",
+                         c("[NONE]", input_names()),
+                         multiple = FALSE)
+    })
+        
     output$size_select <- shiny::renderUI({
       shiny::selectInput("uiSizeSelect",
                          "Size",
@@ -331,13 +357,24 @@ pivotR <- function(input_raw, ...) {
       if (input$uiChartTypes == "Line") {
         plot <- plot |>
           plotly::add_lines(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
-                            x = as.formula(glue::glue("~{input$uiColsSelect}")))
+                            x = as.formula(glue::glue("~{input$uiColsSelect}")),
+                            line = list(
+                              width = as.formula(glue::glue("~{input$uiSize} / 10"))
+                            ))
       }
       
       if (input$uiChartTypes == "Bar") {
         plot <- plot |>
           plotly::add_bars(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
-                           x = as.formula(glue::glue("~{input$uiColsSelect}")))
+                           x = as.formula(glue::glue("~{input$uiColsSelect}")),
+                           marker = list(
+                             color =
+                               if (input$uiColourSelect == "[NONE]") {
+                                 "light blue"
+                               } else {
+                                 as.formula(glue::glue("~{input$uiColourSelect}"))
+                               }
+                           ))
       }
       
       if (input$uiChartTypes == "Scatter") {
@@ -409,6 +446,7 @@ pivotR <- function(input_raw, ...) {
       bs4Dash::updateBox("box_rollup", action = "toggle")
       bs4Dash::updateBox("box_layout", action = "toggle")
       bs4Dash::updateBox("box_chart", action = "toggle")
+      bs4Dash::updateBox('box_pre', action = "toggle")
     })
   }
   
