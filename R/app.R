@@ -111,7 +111,7 @@ pivotR <- function(input_raw, ...) {
             title = "Layout",
             shiny::uiOutput("cols_select"),
             shiny::uiOutput("rows_select"),
-            hr(),
+            shiny::hr(),
             shiny::uiOutput("grouping_calc_select_chart"),
             shiny::hr(),
             shiny::uiOutput("detail_select"),
