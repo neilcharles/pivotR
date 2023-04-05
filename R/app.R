@@ -342,6 +342,46 @@ pivotR <- function(input_raw, ...) {
                        crs = 4326)
     })
     
+    # Chart formatting switches ------------------------------------------------
+    
+    plotly_size <- reactive({
+      plotly_format <- 
+      if (input$uiSizeSelect == "[NONE]") {
+        as.formula(glue::glue("~{input$uiSize}"))
+      } else {
+        as.formula(
+          glue::glue(
+            "~{input$uiSizeSelect} / max({input$uiSizeSelect}) * {input$uiSize}"
+          )
+        )
+      }
+      
+      plotly_format
+    })
+
+    plotly_colour <- reactive({
+      plotly_format <- 
+        if (input$uiColourSelect == "[NONE]") {
+          "light blue"
+        } else {
+          as.formula(glue::glue("~{input$uiColourSelect}"))
+        }
+      
+      plotly_format
+    })
+
+    plotly_detail <- reactive({
+      plotly_format <- 
+        if (input$uiDetailSelect == "[NONE]") {
+          "x"
+        } else {
+          as.formula(glue::glue("~{input$uiDetailSelect}"))
+        }
+      
+      plotly_format
+    })
+    
+    
     # Charts -------------------------------------------------------------------
     output$chart_types <- shiny::renderUI({
       shiny::selectInput("uiChartTypes",
@@ -358,6 +398,7 @@ pivotR <- function(input_raw, ...) {
         plot <- plot |>
           plotly::add_lines(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
                             x = as.formula(glue::glue("~{input$uiColsSelect}")),
+                            color = plotly_detail(),
                             line = list(
                               width = as.formula(glue::glue("~{input$uiSize} / 10"))
                             ))
@@ -367,14 +408,11 @@ pivotR <- function(input_raw, ...) {
         plot <- plot |>
           plotly::add_bars(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
                            x = as.formula(glue::glue("~{input$uiColsSelect}")),
+                           color = plotly_detail(),
                            marker = list(
-                             color =
-                               if (input$uiColourSelect == "[NONE]") {
-                                 "light blue"
-                               } else {
-                                 as.formula(glue::glue("~{input$uiColourSelect}"))
-                               }
-                           ))
+                             color = plotly_colour()
+                           )) |> 
+          plotly::layout(barmode = "stack")
       }
       
       if (input$uiChartTypes == "Scatter") {
@@ -384,25 +422,12 @@ pivotR <- function(input_raw, ...) {
             x = as.formula(glue::glue("~{input$uiColsSelect}")),
             mode = "markers",
             marker = list(
-              size =
-                if (input$uiSizeSelect == "[NONE]") {
-                  as.formula(glue::glue("~{input$uiSize}"))
-                } else {
-                  as.formula(
-                    glue::glue(
-                      "~{input$uiSizeSelect} / max({input$uiSizeSelect}) * {input$uiSize}"
-                    )
-                  )
-                },
-              color =
-                if (input$uiColourSelect == "[NONE]") {
-                  "light blue"
-                } else {
-                  as.formula(glue::glue("~{input$uiColourSelect}"))
-                },
+              size = plotly_size(),
+              color = plotly_colour(),
               opacity = 0.5
             )
-          )
+          ) |> 
+          plotly::layout(showlegend = FALSE)
         
         # Text
         if (input$uiTextSelect != "[NONE]") {
@@ -416,6 +441,14 @@ pivotR <- function(input_raw, ...) {
         }
         
       }
+      
+      plot <- plot |> 
+        plotly::layout(
+          xaxis = list(zeroline = FALSE,
+                       showline = FALSE),
+          yaxis = list(zeroline = FALSE,
+                       showline = FALSE)
+        )
       
       plot
     })
