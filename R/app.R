@@ -40,6 +40,7 @@ pivotR <- function(input_raw, ...) {
       title = "pivotR",
       color = "white"
     )),
+    # Right sidebar ------------------------------------------------------------
     sidebar = bs4Dash::dashboardSidebar(disable = TRUE),
     controlbar = bs4Dash::dashboardControlbar(collapsed = FALSE,
                                               shiny::column(
@@ -51,6 +52,7 @@ pivotR <- function(input_raw, ...) {
                                                 shiny::uiOutput("longitude_select")
                                               )),
     dark = NULL,
+    # Body ---------------------------------------------------------------------
     body = bs4Dash::dashboardBody(# fresh::use_theme(fresh::create_theme('#000000')),
       # CSS
       shiny::tags$head(shiny::tags$style(
@@ -67,6 +69,7 @@ pivotR <- function(input_raw, ...) {
       }"
         )
       )),
+      # Plot Area --------------------------------------------------------------
       shiny::fluidRow(
         shiny::column(10,
                bs4Dash::tabsetPanel(shiny::tabPanel(
@@ -77,21 +80,25 @@ pivotR <- function(input_raw, ...) {
                  title = "Map",
                  leaflet::leafletOutput("map", height = 800)
                ))),
+        # RHS Options ----------------------------------------------------------
         shiny::column(
           2,
           bs4Dash::box(
+            id = "box_filter",
             width = 12,
             title = "Filter",
             shiny::uiOutput("filter_fields_select"),
             shiny::uiOutput("filter_values_select")
           ),
           bs4Dash::box(
+            id = "box_rollup",
             width = 12,
             title = "Rollup",
             shiny::uiOutput("grouping_fields_select"),
             shiny::uiOutput("grouping_calc_select")
           ),
           bs4Dash::box(
+            id = "box_layout",
             width = 12,
             title = "Layout",
             shiny::uiOutput("cols_select"),
@@ -102,6 +109,7 @@ pivotR <- function(input_raw, ...) {
             shiny::uiOutput("text_select")
           ),
           bs4Dash::box(
+            id = "box_chart",
             width = 12,
             title = "Chart",
             shiny::uiOutput("chart_types"),
@@ -119,11 +127,7 @@ pivotR <- function(input_raw, ...) {
       title = "BARB Browser")
   )
   
-  # Define server logic required to draw a histogram
   server <- function(input, output, session) {
-    # input_raw <- mtcars |>
-    #   dplyr::mutate(model = rownames(mtcars))
-    
     # Filter and roll up input -------------------------------------------------
     input_filter <- reactive({
       if(is.null(input$uiFilterValuesSelect)){
@@ -150,7 +154,7 @@ pivotR <- function(input_raw, ...) {
       
       grouping_vars_no_metrics <- grouping_vars_all[!grouping_vars_all %in% input$uiMetricsSelect]
       
-      # Group by grouping vars for pre grouping
+      # Pre visualisation rollup
       if (!is.null(input$uiGroupingFieldsSelect)) {
         rolled_up_input <- input_filter() |>
           dplyr::group_by(dplyr::across(dplyr::all_of(c(input$uiGroupingFieldsSelect, grouping_vars_no_metrics)))) |> # Rollup grouping
@@ -189,13 +193,14 @@ pivotR <- function(input_raw, ...) {
     })
     
     output$rows_select <- shiny::renderUI({
-      shiny::selectInput("uiRowsSelect", "Rows", input_names(), multiple = FALSE)
+      shiny::selectInput("uiRowsSelect", "Rows", input_names(), input_names()[2], multiple = FALSE)
     })
     
     output$cols_select <- shiny::renderUI({
       shiny::selectInput("uiColsSelect",
                          "Columns",
                          input_names(),
+                         input_names()[1],
                          multiple = FALSE)
     })
     
@@ -225,6 +230,20 @@ pivotR <- function(input_raw, ...) {
         names(input_raw[, purrr::map_lgl(input_raw, is.numeric)]),
         multiple = TRUE
       )
+    })
+  
+    # Dates setup --------------------------------------------------------------
+    output$date_select <- shiny::renderUI({
+      default_date <- names(input_raw)[is.Date(input_raw)][1]
+
+      shiny::selectInput(
+        "uiDateSelect",
+        "Dates",
+        input_names(),
+        default_date,
+        multiple = FALSE
+      )
+      
     })
     
     # Geo Setup ----------------------------------------------------------------
@@ -358,7 +377,14 @@ pivotR <- function(input_raw, ...) {
                                   weight = 1)
       
     })
-     
+    
+    # Collapse boxes prior to app start ----------------------------------------
+    observe({
+      bs4Dash::updateBox('box_filter', action = "toggle")
+      bs4Dash::updateBox("box_rollup", action = "toggle")
+      bs4Dash::updateBox("box_layout", action = "toggle")
+      bs4Dash::updateBox("box_chart", action = "toggle")
+    })
   }
   
   # shinyApp(ui, server)
