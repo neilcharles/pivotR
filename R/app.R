@@ -494,6 +494,11 @@ pivotR <- function(input_raw, ...) {
       bs4Dash::updateBox("box_chart", action = "toggle")
       bs4Dash::updateBox('box_pre', action = "toggle")
     })
+    
+    #Quit app when the browser window is closed
+    session$onSessionEnded(function() {
+      shiny::stopApp()
+    })
   }
   
   # shinyApp(ui, server)
