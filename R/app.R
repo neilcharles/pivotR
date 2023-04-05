@@ -161,7 +161,7 @@ pivotR <- function(input_raw, ...) {
       # Filter the input
       if(!is.null(input$uiFilterValuesSelect)){
         input_processed <- input_processed |> 
-          dplyr::filter((!!rlang::sym(input$uiFilterFieldsSelect)) %in% input$uiFilterValuesSelect)
+          dplyr::filter((as.character(!!rlang::sym(input$uiFilterFieldsSelect))) %in% input$uiFilterValuesSelect)
       }
       
       input_processed
@@ -386,7 +386,7 @@ pivotR <- function(input_raw, ...) {
     output$chart_types <- shiny::renderUI({
       shiny::selectInput("uiChartTypes",
                          "Chart Type",
-                         c("Line", "Bar", "Scatter"),
+                         c("Line", "Scatter", "Column", "Bar"),
                          multiple = FALSE)
     })
     
@@ -404,7 +404,7 @@ pivotR <- function(input_raw, ...) {
                             ))
       }
       
-      if (input$uiChartTypes == "Bar") {
+      if (input$uiChartTypes == "Column") {
         plot <- plot |>
           plotly::add_bars(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
                            x = as.formula(glue::glue("~{input$uiColsSelect}")),
@@ -414,6 +414,19 @@ pivotR <- function(input_raw, ...) {
                            )) |> 
           plotly::layout(barmode = "stack")
       }
+      
+      if (input$uiChartTypes == "Bar") {
+        plot <- plot |>
+          plotly::add_bars(y = as.formula(glue::glue("~{input$uiRowsSelect}")),
+                           x = as.formula(glue::glue("~{input$uiColsSelect}")),
+                           orientation = 'h',
+                           color = plotly_detail(),
+                           marker = list(
+                             color = plotly_colour()
+                           )) |> 
+          plotly::layout(barmode = "stack")
+      }
+      
       
       if (input$uiChartTypes == "Scatter") {
         plot <- plot |>
