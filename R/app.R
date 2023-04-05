@@ -81,6 +81,12 @@ pivotR <- function(input_raw, ...) {
           2,
           bs4Dash::box(
             width = 12,
+            title = "Filter",
+            shiny::uiOutput("filter_fields_select"),
+            shiny::uiOutput("filter_values_select")
+          ),
+          bs4Dash::box(
+            width = 12,
             title = "Layout",
             shiny::uiOutput("cols_select"),
             shiny::uiOutput("rows_select")
@@ -117,8 +123,13 @@ pivotR <- function(input_raw, ...) {
     
     # Filter and roll up input -------------------------------------------------
     input_filter <- reactive({
-      input_raw
-    })
+      if(is.null(input$uiFilterValuesSelect)){
+        return(input_raw)
+      } else {
+        input_raw |> 
+          dplyr::filter((!!rlang::sym(input$uiFilterFieldsSelect)) %in% input$uiFilterValuesSelect)
+      }
+      })
     
     input_names <- reactive({
       names(input_raw)
@@ -138,10 +149,19 @@ pivotR <- function(input_raw, ...) {
           dplyr::group_by(dplyr::across(dplyr::all_of(grouping_vars))) |>
           dplyr::summarise(dplyr::across(input$uiMetricsSelect, sum))
       } else {
-        rolled_up_input <- input_raw
+        rolled_up_input <- input_filter()
       }
       
       rolled_up_input
+    })
+    
+    output$filter_fields_select <- shiny::renderUI({
+      shiny::selectInput("uiFilterFieldsSelect", "Fields", input_names(), multiple = FALSE)
+    })
+    
+    output$filter_values_select <- shiny::renderUI({
+      req(input$uiFilterFieldsSelect)
+      shiny::selectInput("uiFilterValuesSelect", input$filterFieldsSelect, unique(input_raw[input$uiFilterFieldsSelect]), multiple = TRUE)
     })
     
     output$rows_select <- shiny::renderUI({
