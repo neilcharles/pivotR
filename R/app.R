@@ -45,9 +45,13 @@ pivotR <- function(input_raw, ...) {
     controlbar = bs4Dash::dashboardControlbar(collapsed = FALSE,
                                               shiny::column(
                                                 width = 8,
+                                                shiny::p("Metric Fields"),
                                                 shiny::uiOutput("metrics_select"),
                                                 shiny::hr(),
-                                                shiny::p("Geo"),
+                                                shiny::p("Date Fields"),
+                                                shiny::uiOutput("date_select"),
+                                                shiny::hr(),
+                                                shiny::p("Geo Fields"),
                                                 shiny::uiOutput("latitude_select"),
                                                 shiny::uiOutput("longitude_select")
                                               )),
@@ -129,17 +133,35 @@ pivotR <- function(input_raw, ...) {
   
   server <- function(input, output, session) {
     # Filter and roll up input -------------------------------------------------
-    input_filter <- reactive({
-      if(is.null(input$uiFilterValuesSelect)){
-        return(input_raw)
-      } else {
-        input_raw |> 
+    input_pre_processed <- reactive({
+      input_processed <- input_raw
+      
+      req(input$uiDateSelect)
+      
+      # Add date variables
+      if(input$uiDateSelect!="[NONE]"){
+        input_processed <- input_processed |> 
+          dplyr::mutate(!!glue::glue("{input$uiDateSelect}_Year") := lubridate::floor_date(!!rlang::sym(input$uiDateSelect), unit = "year")) |> 
+          dplyr::mutate(!!glue::glue("{input$uiDateSelect}_Month") := lubridate::floor_date(!!rlang::sym(input$uiDateSelect), unit = "month")) |> 
+          dplyr::mutate(!!glue::glue("{input$uiDateSelect}_Week") := lubridate::floor_date(!!rlang::sym(input$uiDateSelect), unit = "week")) |> 
+          dplyr::select(c(input$uiDateSelect,
+                          glue::glue("{input$uiDateSelect}_Year"),
+                          glue::glue("{input$uiDateSelect}_Month"),
+                          glue::glue("{input$uiDateSelect}_Week")),
+                          everything())
+      }
+      
+      # Filter the input
+      if(!is.null(input$uiFilterValuesSelect)){
+        input_processed <- input_processed |> 
           dplyr::filter((!!rlang::sym(input$uiFilterFieldsSelect)) %in% input$uiFilterValuesSelect)
       }
+      
+      input_processed
       })
     
     input_names <- reactive({
-      names(input_raw)
+      names(input_pre_processed())
     })
     
     summary_function <- reactive({
@@ -156,12 +178,12 @@ pivotR <- function(input_raw, ...) {
       
       # Pre visualisation rollup
       if (!is.null(input$uiGroupingFieldsSelect)) {
-        rolled_up_input <- input_filter() |>
+        rolled_up_input <- input_pre_processed() |>
           dplyr::group_by(dplyr::across(dplyr::all_of(c(input$uiGroupingFieldsSelect, grouping_vars_no_metrics)))) |> # Rollup grouping
           dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function())) |> 
           dplyr::ungroup()
       } else {
-        rolled_up_input <- input_filter()
+        rolled_up_input <- input_pre_processed()
       }
       
       # Group by grouping vars for rows and cols (if there are any)
@@ -176,7 +198,7 @@ pivotR <- function(input_raw, ...) {
     })
     
     output$filter_fields_select <- shiny::renderUI({
-      shiny::selectInput("uiFilterFieldsSelect", "Fields", input_names(), multiple = FALSE)
+      shiny::selectInput("uiFilterFieldsSelect", "Fields", names(input_raw), multiple = FALSE)
     })
     
     output$filter_values_select <- shiny::renderUI({
@@ -193,7 +215,7 @@ pivotR <- function(input_raw, ...) {
     })
     
     output$rows_select <- shiny::renderUI({
-      shiny::selectInput("uiRowsSelect", "Rows", input_names(), input_names()[2], multiple = FALSE)
+      shiny::selectInput("uiRowsSelect", "Rows", input_names(), input$uiMetricsSelect[1], multiple = FALSE)
     })
     
     output$cols_select <- shiny::renderUI({
@@ -234,12 +256,15 @@ pivotR <- function(input_raw, ...) {
   
     # Dates setup --------------------------------------------------------------
     output$date_select <- shiny::renderUI({
-      default_date <- names(input_raw)[is.Date(input_raw)][1]
+      
+      default_date <- names(input_raw)[sapply(input_raw, lubridate::is.Date)][1]
 
+      if(is.na(default_date)) default_date <- "[NONE]"
+        
       shiny::selectInput(
         "uiDateSelect",
-        "Dates",
-        input_names(),
+        "Date",
+        c("[NONE]", names(input_raw)),
         default_date,
         multiple = FALSE
       )
@@ -249,10 +274,10 @@ pivotR <- function(input_raw, ...) {
     # Geo Setup ----------------------------------------------------------------
     output$latitude_select <- shiny::renderUI({
       
-      default_lat_id <- which(input_names() %in% c('latitude', 'lat'))
+      default_lat_id <- which(names(input_raw) %in% c('latitude', 'lat'))
       
       if(length(default_lat_id>0)){
-        default_lat <- input_names()[default_lat_id][1]
+        default_lat <- names(input_raw)[default_lat_id][1]
       } else {
         default_lat <- ""
       }
@@ -260,7 +285,7 @@ pivotR <- function(input_raw, ...) {
       shiny::selectInput(
         "uiLatitudeSelect",
         "Latitude",
-        input_names(),
+        names(input_raw),
         default_lat,
         multiple = FALSE
       )
@@ -268,10 +293,10 @@ pivotR <- function(input_raw, ...) {
     
     output$longitude_select <- shiny::renderUI({
       
-      default_lon_id <- which(input_names() %in% c('longitude', 'lon', 'long'))
+      default_lon_id <- which(names(input_raw) %in% c('longitude', 'lon', 'long'))
       
       if(length(default_lon_id>0)){
-        default_lon <- input_names()[default_lon_id][1]
+        default_lon <- names(input_raw)[default_lon_id][1]
       } else {
         default_lon <- ""
       }
@@ -279,14 +304,14 @@ pivotR <- function(input_raw, ...) {
       shiny::selectInput(
         "uiLongitudeSelect",
         "Longitude",
-        input_names(),
+        names(input_raw),
         default_lon,
         multiple = FALSE
       )
     })
     
     input_sf <- reactive({
-      sf::st_as_sf(input_filter(),
+      sf::st_as_sf(input_pre_processed(),
                    coords = c(input$uiLongitudeSelect, input$uiLatitudeSelect), 
                        crs = 4326)
     })
