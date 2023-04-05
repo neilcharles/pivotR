@@ -87,13 +87,16 @@ pivotR <- function(input_raw, ...) {
           ),
           bs4Dash::box(
             width = 12,
-            title = "Layout",
-            shiny::uiOutput("cols_select"),
-            shiny::uiOutput("rows_select")
+            title = "Rollup",
+            shiny::uiOutput("grouping_fields_select"),
+            shiny::uiOutput("grouping_calc_select")
           ),
           bs4Dash::box(
             width = 12,
-            title = "Format",
+            title = "Layout",
+            shiny::uiOutput("cols_select"),
+            shiny::uiOutput("rows_select"),
+            shiny::hr(),
             shiny::uiOutput("size_select"),
             shiny::uiOutput("colour_select"),
             shiny::uiOutput("text_select")
@@ -135,21 +138,34 @@ pivotR <- function(input_raw, ...) {
       names(input_raw)
     })
     
+    summary_function <- reactive({
+      match.fun(input$uiGroupingCalcSelect)
+    })
+    
     input_rollup <- reactive({
       shiny::req(input$uiRowsSelect, input$uiColsSelect)
       
       # Build a vector of all dimension vars in use in the viz
-      grouping_vars <- c(input$uiRowsSelect,
-                         input$uiColsSelect)[!c(input$uiRowsSelect,
-                                                input$uiColsSelect) %in% input$uiMetricsSelect]
+      grouping_vars_all <- c(input$uiRowsSelect, input$uiColsSelect)
       
-      # Group by grouping vars (if there are any)
-      if (length(grouping_vars) > 0) {
+      grouping_vars_no_metrics <- grouping_vars_all[!grouping_vars_all %in% input$uiMetricsSelect]
+      
+      # Group by grouping vars for pre grouping
+      if (!is.null(input$uiGroupingFieldsSelect)) {
         rolled_up_input <- input_filter() |>
-          dplyr::group_by(dplyr::across(dplyr::all_of(grouping_vars))) |>
-          dplyr::summarise(dplyr::across(input$uiMetricsSelect, sum))
+          dplyr::group_by(dplyr::across(dplyr::all_of(c(input$uiGroupingFieldsSelect, grouping_vars_no_metrics)))) |> # Rollup grouping
+          dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function())) |> 
+          dplyr::ungroup()
       } else {
         rolled_up_input <- input_filter()
+      }
+      
+      # Group by grouping vars for rows and cols (if there are any)
+      if (length(grouping_vars_no_metrics) > 0) {
+        rolled_up_input <- rolled_up_input |>
+          dplyr::group_by(dplyr::across(dplyr::all_of(grouping_vars_no_metrics))) |> # Rows and cols grouping
+          dplyr::summarise(dplyr::across(input$uiMetricsSelect, summary_function())) |> 
+          dplyr::ungroup()
       }
       
       rolled_up_input
@@ -162,6 +178,14 @@ pivotR <- function(input_raw, ...) {
     output$filter_values_select <- shiny::renderUI({
       req(input$uiFilterFieldsSelect)
       shiny::selectInput("uiFilterValuesSelect", input$filterFieldsSelect, unique(input_raw[input$uiFilterFieldsSelect]), multiple = TRUE)
+    })
+    
+    output$grouping_fields_select <- shiny::renderUI({
+      shiny::selectInput("uiGroupingFieldsSelect", "Fields", input_names()[!input_names() %in% input$uiMetricsSelect], multiple = TRUE)
+    })
+    
+    output$grouping_calc_select <- shiny::renderUI({
+      shiny::selectInput("uiGroupingCalcSelect", "Calculation", c("sum", "mean", "min", "max"), multiple = FALSE)
     })
     
     output$rows_select <- shiny::renderUI({
