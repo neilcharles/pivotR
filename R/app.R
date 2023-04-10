@@ -108,6 +108,7 @@ pivotR <- function(input_raw, ...) {
   
   server <- function(input, output, session) {
     
+    # Build menu rhs menu ------------------------------------------------------
     output$ui_menu_pre_chart <- shiny::renderUI({
       shiny::tagList(
         shiny::br(),
@@ -127,6 +128,7 @@ pivotR <- function(input_raw, ...) {
         
         shiny::uiOutput("cols_select"),
         shiny::uiOutput("rows_select"),
+        shiny::uiOutput("sorting_select"),
         shiny::hr(),
         shiny::uiOutput("grouping_calc_select_chart"),
         shiny::hr(),
@@ -143,7 +145,8 @@ pivotR <- function(input_raw, ...) {
         
         shiny::uiOutput("chart_types"),
         shiny::hr(),
-        shiny::uiOutput("size_slider")
+        shiny::uiOutput("size_slider"),
+        shiny::uiOutput("opacity_slider")
       )
     })
     
@@ -240,7 +243,7 @@ pivotR <- function(input_raw, ...) {
     
     # Build viz rollup table ---------------------------------------------------
     input_rollup <- reactive({
-      req(dimensions_in_use(), metrics_in_use())
+      # req(dimensions_in_use(), metrics_in_use())
       
       # Pre visualisation rollup
       if (!is.null(input$uiGroupingFieldsSelect)) {
@@ -265,9 +268,31 @@ pivotR <- function(input_raw, ...) {
         dplyr::summarise(dplyr::across(unname(metrics_in_use()), summary_function_chart())) |>
         dplyr::ungroup()
       
+      # Sorting
+      if(input$uiSortingSelect == "Dimensions"){
+        rolled_up_input <- rolled_up_input |> 
+          dplyr::arrange(dplyr::across(unname(dimensions_in_use()))) |> 
+          dplyr::mutate(dplyr::across(unname(dimensions_in_use()), as.character)) |> 
+          dplyr::mutate(dplyr::across(unname(dimensions_in_use()), forcats::fct_inorder))
+      }
+      
+      if(input$uiSortingSelect == "Metrics"){
+        rolled_up_input <- rolled_up_input |> 
+          dplyr::arrange(dplyr::across(unname(metrics_in_use()))) |> 
+          dplyr::mutate(dplyr::across(unname(dimensions_in_use()), as.character)) |> 
+          dplyr::mutate(dplyr::across(unname(dimensions_in_use()), forcats::fct_inorder))
+      }
+      
+      # Check rolled_up_input
+      validate(
+        need(nrow(rolled_up_input) > 1, "Only one row. Select a dimension split for Horizontal (x), Vertical (y) or Detail.")
+      )
+      
+      
       rolled_up_input
     })
     
+    # Server side UI -----------------------------------------------------------
     output$filter_fields_select <- shiny::renderUI({
       shiny::selectInput("uiFilterFieldsSelect",
                          "Fields",
@@ -375,6 +400,20 @@ pivotR <- function(input_raw, ...) {
         max = 200,
         value = 10
       )
+    })
+    
+    output$sorting_select <- renderUI({
+      shiny::radioButtons("uiSortingSelect",
+                          "Sorting",
+                          choices = c("Data", "Dimensions", "Metrics"),
+                          selected = "Data",
+                          inline = TRUE)
+    })
+    
+    output$opacity_slider <- renderUI({
+      shiny::sliderInput("uiOpacitySlider",
+                         "Opacity",
+                         min = 0, max = 1, value = 0.8)
     })
     
     # Dates setup --------------------------------------------------------------
@@ -499,6 +538,7 @@ pivotR <- function(input_raw, ...) {
             y = as.formula(glue::glue("~{input$uiRowsSelect}")),
             x = as.formula(glue::glue("~{input$uiColsSelect}")),
             color = plotly_detail(),
+            opacity = input$uiOpacitySlider,
             line = list(width = as.formula(
               glue::glue("~{input$uiSize} / 10")
             ))
@@ -511,6 +551,7 @@ pivotR <- function(input_raw, ...) {
             y = as.formula(glue::glue("~{input$uiRowsSelect}")),
             x = as.formula(glue::glue("~{input$uiColsSelect}")),
             color = plotly_detail(),
+            opacity = input$uiOpacitySlider,
             marker = list(color = plotly_colour())
           ) |>
           plotly::layout(barmode = "stack")
@@ -523,6 +564,7 @@ pivotR <- function(input_raw, ...) {
             x = as.formula(glue::glue("~{input$uiColsSelect}")),
             orientation = 'h',
             color = plotly_detail(),
+            opacity = input$uiOpacitySlider,
             marker = list(color = plotly_colour())
           ) |>
           plotly::layout(barmode = "stack")
@@ -569,7 +611,7 @@ pivotR <- function(input_raw, ...) {
             marker = list(
               size = plotly_size(),
               color = plotly_colour(),
-              opacity = 0.5
+              opacity = input$uiOpacitySlider
             )
           ) |>
           plotly::layout(showlegend = FALSE)
@@ -622,11 +664,16 @@ pivotR <- function(input_raw, ...) {
       shiny::stopApp()
     })
 
-    # Enable everything that's hidden at the start
+    # Enable everything that's hidden at the start -----------------------------
     shiny::outputOptions(output, "ui_menu_pre_chart", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "ui_menu_layout", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "ui_menu_chart", suspendWhenHidden = FALSE)
     
+    shiny::outputOptions(output, "filter_fields_select", suspendWhenHidden = FALSE)
+    shiny::outputOptions(output, "filter_values_select", suspendWhenHidden = FALSE)
+    shiny::outputOptions(output, "grouping_fields_select", suspendWhenHidden = FALSE)
+    shiny::outputOptions(output, "grouping_calc_select_pre", suspendWhenHidden = FALSE)
+
     shiny::outputOptions(output, "cols_select", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "rows_select", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "grouping_calc_select_chart", suspendWhenHidden = FALSE)
@@ -637,6 +684,9 @@ pivotR <- function(input_raw, ...) {
 
     shiny::outputOptions(output, "chart_types", suspendWhenHidden = FALSE)
     shiny::outputOptions(output, "size_slider", suspendWhenHidden = FALSE)
+    shiny::outputOptions(output, "opacity_slider", suspendWhenHidden = FALSE)
+    
+    bs4Dash::updateTabItems(inputId = "main_menu", select = "Layout")
     
     bs4Dash::updateControlbar(id = 'control_bar')
     
