@@ -350,7 +350,7 @@ pivotR <- function(input_raw, ...) {
       shiny::selectInput("uiColsSelect",
                          "Horizontal (x)",
                          input_names(),
-                         input_names()[1],
+                         input_names()[!input_names() %in% input$uiMetricsSelect][1],
                          multiple = FALSE)
     })
     

@@ -4,7 +4,7 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-PivotR is a plugin for RStudio that is inspired by the data pivoting approach found in Tableau and helps with fast, graphical investigation of data frames. If you're faced with a csv you've never loaded before, it's an intuitive and visual way to explore that data.
+PivotR is a plugin for RStudio that is inspired by the data pivoting approach found in Tableau. It helps with fast, graphical investigation of data frames. If you're faced with a csv you've never loaded before, pivotR an intuitive and visual way to explore that data.
 
 PivotR is intended to run as an RStudio addin. Simply highlight the name of a data frame in a script and press a keyboard shortcut to launch a graphical browser on that data.
 
@@ -21,7 +21,7 @@ Once pivotR is installed, you can launch it on a data frame by running:
 
 ``` r
 library(pivotR)
-pivotR(mtcars)
+pivotR(iris)
 ```
 
 However, running using a keyboard shortcut is much more efficient. In RStudio, navigate to Tools > Addins > Browse Addins... and assign a keyboard shortcut of your choice to pivotR. You may need to restart RStudio after installation of the library for it to appear in this list.
